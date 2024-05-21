@@ -6,32 +6,33 @@
 
 #include <stdlib.h>
 
-// Initialize the queue
-int initQueue(struct Queue* queue) {
+int initQueue(struct Queue* queue, int capacity) {
     if (queue == NULL) {
         return -1; // Invalid queue pointer
+    }
+    if (capacity > QUEUE_CAPACITY) {
+        return -1; // Capacity is too large
     }
     queue->frontIndex = 0;
     queue->rearIndex = 0;
     queue->size = 0;
-    return 0; // Queue initialized successfully
+    queue->capacity = capacity;
+    return 0;
 }
 
-// Enqueue a connection request into the queue
 int enqueue(struct Queue* queue, struct FileInfo fileInfo) {
     if (queue == NULL) {
         return -1; // Invalid queue pointer
     }
-    if (queue->size >= QUEUE_CAPACITY) {
+    if (queue->size >= queue->capacity) {
         return -1; // Queue is full
     }
     queue->fileInfo[queue->rearIndex] = fileInfo;
-    queue->rearIndex = (queue->rearIndex + 1) % QUEUE_CAPACITY;
+    queue->rearIndex = (queue->rearIndex + 1) % queue->capacity;
     queue->size++;
     return 0; // Enqueue operation successful
 }
 
-// Dequeue a connection request from the queue
 int dequeue(struct Queue* queue, struct FileInfo* fileInfo) {
     if (queue == NULL || fileInfo == NULL) {
         return -1; // Invalid queue or connectionRequest pointer
@@ -40,15 +41,21 @@ int dequeue(struct Queue* queue, struct FileInfo* fileInfo) {
         return -1; // Queue is empty
     }
     *fileInfo = queue->fileInfo[queue->frontIndex];
-    queue->frontIndex = (queue->frontIndex + 1) % QUEUE_CAPACITY;
+    queue->frontIndex = (queue->frontIndex + 1) % queue->capacity;
     queue->size--;
     return 0; // Dequeue operation successful
 }
 
-// Check if the queue is empty
 int isQueueEmpty(struct Queue* queue) {
     if (queue == NULL) {
         return -1; // Invalid queue pointer
     }
     return (queue->size == 0);
+}
+
+int isQueueFull(struct Queue* queue) {
+    if (queue == NULL) {
+        return -1; // Invalid queue pointer
+    }
+    return (queue->size == queue->capacity);
 }
