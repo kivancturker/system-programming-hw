@@ -21,5 +21,6 @@ int initQueue(struct Queue* queue, int capacity);
 int enqueue(struct Queue* queue, struct FileInfo fileInfo);
 int dequeue(struct Queue* queue, struct FileInfo* fileInfo);
 int isQueueEmpty(struct Queue* queue);
+int isQueueFull(struct Queue* queue);
 
 #endif //QUEUE_H

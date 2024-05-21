@@ -47,15 +47,9 @@ int dequeue(struct Queue* queue, struct FileInfo* fileInfo) {
 }
 
 int isQueueEmpty(struct Queue* queue) {
-    if (queue == NULL) {
-        return -1; // Invalid queue pointer
-    }
     return (queue->size == 0);
 }
 
 int isQueueFull(struct Queue* queue) {
-    if (queue == NULL) {
-        return -1; // Invalid queue pointer
-    }
     return (queue->size == queue->capacity);
 }

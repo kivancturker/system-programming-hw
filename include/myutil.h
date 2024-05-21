@@ -39,6 +39,15 @@ struct FileStats {
     off_t totalBytes;
 };
 
+struct ThreadArgs {
+    struct Queue *bufferQueue;
+    pthread_mutex_t *bufferMutex;
+    pthread_cond_t *bufferCond;
+    char destPath[MAX_DIR_PATH_SIZE];
+    char srcPath[MAX_DIR_PATH_SIZE];
+    int* isFinished;
+};
+
 
 void parseArgs(int argc, char *argv[], struct Args *args);
 
