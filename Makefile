@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -lpthread -Iinclude -std=gnu99
 MAIN_OBJ = obj/main.o
-OBJS = obj/myutil.o obj/fileops.o
+OBJS = obj/myutil.o obj/fileops.o obj/queue.o
 
 all: main
 
