@@ -9,10 +9,17 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
+#include <signal.h>
 
 #include "myutil.h"
 #include "fileops.h"
 #include "worker.h"
+
+sig_atomic_t sigIntrCount = 0;
+
+void sigintHandler(int signal) {
+    sigIntrCount++;
+}
 
 // Main with arguments
 int main(int argc, char *argv[]) {
@@ -25,9 +32,19 @@ int main(int argc, char *argv[]) {
 
     start = clock();
 
+    // Signal handling for SIGINT
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = &sigintHandler;
+    if (sigaction(SIGINT, &sa, NULL) == -1) {
+        perror("sigaction");
+        return 1;
+    }
+
     struct Args args;
     parseArgs(argc, argv, &args);
 
+    prepareDirectory(args.destPath);
     struct Queue bufferQueue;
     initQueue(&bufferQueue, args.bufferSize);
 
@@ -43,17 +60,21 @@ int main(int argc, char *argv[]) {
     // Thread pool creation
     int isTerminates = 0;
     pthread_mutex_t bufferMutex = PTHREAD_MUTEX_INITIALIZER;
+    pthread_mutex_t byteCounterMutex = PTHREAD_MUTEX_INITIALIZER;
     pthread_cond_t bufferCond = PTHREAD_COND_INITIALIZER;
 
     pthread_t* threads = malloc(args.threadCount * sizeof(pthread_t));
     struct ThreadArgs* threadArgsArray = malloc(args.threadCount * sizeof(struct ThreadArgs));
     int isFinished = 0;
+    off_t byteCounter = 0;
 
     for (int i = 0; i < args.threadCount; i++) {
         threadArgsArray[i].bufferQueue = &bufferQueue;
         threadArgsArray[i].bufferMutex = &bufferMutex;
+        threadArgsArray[i].byteCounterMutex = &byteCounterMutex;
         threadArgsArray[i].bufferCond = &bufferCond;
         threadArgsArray[i].isFinished = &isFinished;
+        threadArgsArray[i].byteCounter = &byteCounter;
         strncpy(threadArgsArray[i].destPath, args.destPath, MAX_DIR_PATH_SIZE);
         strncpy(threadArgsArray[i].srcPath, args.srcPath, MAX_DIR_PATH_SIZE);
 
@@ -113,7 +134,8 @@ int main(int argc, char *argv[]) {
     printf("Number of Regular File: %d\n", fileStats.regularFileCount);
     printf("Number of FIFO File: %d\n", fileStats.fifoCount);
     printf("Number of Directory: %d\n", fileStats.directoryCount);
-    printf("TOTAL BYTES: %lld\n", fileStats.totalBytes);
+    printf("TOTAL BYTES ESTIMATED: %lld\n", fileStats.totalBytes);
+    printf("TOTAL BYTES WRITTEN: %lld\n", byteCounter);
     printf("TOTAL TIME: %02ld:%02ld.%03ld (min:sec.mili)\n", minutes, seconds, milliseconds);
 
     // Cleanups

@@ -58,7 +58,8 @@ void traverseAndOpenFiles(const char* srcPath, const char* destPath, struct File
         snprintf(srcFilePath, sizeof(srcFilePath), "%s/%s", srcPath, entry->d_name);
         snprintf(destFilePath, sizeof(destFilePath), "%s/%s", destPath, entry->d_name);
         enum FileType type = UNKNOWN_FILE_TYPE;
-        int fd = -1;
+        int destFd = -1;
+        int srcFd = -1;
 
         if (stat(srcFilePath, &fileStat) < 0) {
             fprintf(stderr, "Error stating file: %s ", srcFilePath);
@@ -67,9 +68,15 @@ void traverseAndOpenFiles(const char* srcPath, const char* destPath, struct File
         }
 
         if (S_ISREG(fileStat.st_mode)) {
-            fd = open(destFilePath, O_RDONLY | O_CREAT | O_TRUNC, 0666);
-            if (fd == -1) {
-                perror("Error opening file");
+            destFd = open(destFilePath, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+            if (destFd == -1) {
+                perror("Error opening destination file");
+                continue;
+            }
+            srcFd = open(srcFilePath, O_RDONLY, 0666);
+            if (srcFd == -1) {
+                perror("Error opening source file");
+                close(destFd);
                 continue;
             }
             type = REGULAR_FILE;
@@ -92,17 +99,20 @@ void traverseAndOpenFiles(const char* srcPath, const char* destPath, struct File
         // Resize array if necessary
         if (*count == *capacity) {
             *capacity *= 2;
-            *fileInfos = realloc(*fileInfos, *capacity * sizeof(struct FileInfo));
-            if (*fileInfos == NULL) {
+            struct FileInfo* temp = realloc(*fileInfos, *capacity * sizeof(struct FileInfo));
+            if (temp == NULL) {
                 perror("Unable to reallocate memory for fileInfos");
                 closedir(dir);
                 return;
             }
+            *fileInfos = temp;
         }
 
         // Add file descriptor and name to array
-        (*fileInfos)[*count].fd = fd;
-        strncpy((*fileInfos)[*count].name, entry->d_name, MAX_PATH_SIZE);
+        (*fileInfos)[*count].destFd = destFd;
+        (*fileInfos)[*count].srcFd = srcFd;
+        strncpy((*fileInfos)[*count].filename, entry->d_name, MAX_PATH_SIZE);
+        strncpy((*fileInfos)[*count].destFilePath, destFilePath, MAX_PATH_SIZE);
         (*fileInfos)[*count].type = type;
         (*count)++;
     }
@@ -113,7 +123,12 @@ void traverseAndOpenFiles(const char* srcPath, const char* destPath, struct File
 
 void cleanUpFileInfo(struct FileInfo* fileInfos, int size) {
     for (int i = 0; i < size; i++) {
-        if (close(fileInfos[i].fd) == -1) {
+        if (close(fileInfos[i].destFd) == -1) {
+            if (errno != EBADF) {
+                perror("Error closing file");
+            }
+        }
+        if (close(fileInfos[i].srcFd) == -1) {
             if (errno != EBADF) {
                 perror("Error closing file");
             }
