@@ -98,9 +98,15 @@ int main(int argc, char *argv[]) {
         }
         pthread_mutex_unlock(&bufferMutex);
     }
-    // If any locked thread is waiting, signal them
+
+    // Wait until the queue is fully processed
+    pthread_mutex_lock(&bufferMutex);
+    while (!isQueueEmpty(&bufferQueue)) {
+        pthread_cond_wait(&bufferCond, &bufferMutex);
+    }
     isFinished = 1;
     pthread_cond_broadcast(&bufferCond);
+    pthread_mutex_unlock(&bufferMutex);
 
     // Join all threads
     for (int i = 0; i < args.threadCount; i++) {

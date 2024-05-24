@@ -19,10 +19,13 @@ void parseArgs(int argc, char *argv[], struct Args *args) {
 
 void prepareDirectory(const char* dirPath) {
     // Delete the directory and all its contents
-    if (nftw(dirPath, removeItem, 64, FTW_DEPTH | FTW_PHYS) < 0) {
-        perror("nftw");
+    struct stat st;
+    if (stat(dirPath, &st) == 0) {
+        // The directory exists, so delete it and its contents
+        if (nftw(dirPath, removeItem, 64, FTW_DEPTH | FTW_PHYS) < 0) {
+            perror("nftw");
+        }
     }
-
     // Create the directory
     if (mkdir(dirPath, 0755) == -1) {
         perror("Error creating directory");

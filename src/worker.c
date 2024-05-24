@@ -46,6 +46,7 @@ void* worker(void* arg) {
         dequeue(bufferQueue, &fileInfo);
         pthread_mutex_unlock(bufferMutex);
         pthread_cond_signal(bufferCond);
+
         bytesRead = 1;
         while(bytesRead > 0) {
             NO_EINTR(bytesRead = read(fileInfo.srcFd, fileBuffer, FILEIO_BUFFER_SIZE));
