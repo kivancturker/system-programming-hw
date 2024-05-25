@@ -27,6 +27,7 @@ void* worker(void* arg) {
     strncpy(destPath, threadArgs->destPath, MAX_DIR_PATH_SIZE);
     strncpy(srcPath, threadArgs->srcPath, MAX_DIR_PATH_SIZE);
     pthread_mutex_unlock(threadArgs->bufferMutex);
+
     int bytesRead = 1;
     int bytesWritten = 0;
     char fileBuffer[FILEIO_BUFFER_SIZE];
@@ -34,7 +35,6 @@ void* worker(void* arg) {
     struct FileInfo fileInfo;
 
     while (!(*isFinished)) {
-        // Take the item from buffer and sleep fore a while
         pthread_mutex_lock(bufferMutex);
         while (isQueueEmpty(bufferQueue)) {
             pthread_cond_wait(bufferCond, bufferMutex);

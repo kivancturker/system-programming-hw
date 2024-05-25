@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <ftw.h>
+#include <pthread.h>
 
 #define NO_EINTR(expr) while ((expr) == -1 && errno == EINTR);
 
@@ -59,5 +60,7 @@ struct ThreadArgs {
 void parseArgs(int argc, char *argv[], struct Args *args);
 void prepareDirectory(const char* dirPath);
 int removeItem(const char *path, const struct stat *sb, int typeflag, struct FTW *ftwbuf);
+int joinAllThreads(pthread_t* threads, int threadCount);
+int cancelAllThreads(pthread_t* threads, int threadCount);
 
 #endif // MYUTIL_H

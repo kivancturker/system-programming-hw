@@ -39,3 +39,25 @@ int removeItem(const char *path, const struct stat *sb, int typeflag, struct FTW
     }
     return 0;
 }
+
+int joinAllThreads(pthread_t* threads, int threadCount) {
+    for (int i = 0; i < threadCount; i++) {
+        int joinResult = pthread_join(threads[i], NULL);
+        if (joinResult != 0) {
+            fprintf(stderr, "Error: pthread_join failed with error number %d\n", joinResult);
+            return -1;
+        }
+    }
+    return 0;
+}
+
+int cancelAllThreads(pthread_t* threads, int threadCount) {
+    for (int i = 0; i < threadCount; i++) {
+        int cancelResult = pthread_cancel(threads[i]);
+        if (cancelResult != 0) {
+            fprintf(stderr, "Error: pthread_cancel failed with error number %d\n", cancelResult);
+            return -1;
+        }
+    }
+    return 0;
+}

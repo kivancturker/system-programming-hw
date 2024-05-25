@@ -15,10 +15,10 @@
 #include "fileops.h"
 #include "worker.h"
 
-sig_atomic_t sigIntrCount = 0;
+int isTerminates = 0;
 
 void sigintHandler(int signal) {
-    sigIntrCount++;
+    isTerminates = 1;
 }
 
 // Main with arguments
@@ -58,7 +58,6 @@ int main(int argc, char *argv[]) {
     traverseDirectoryAndFillStats(args.srcPath, &fileStats);
 
     // Thread pool creation
-    int isTerminates = 0;
     pthread_mutex_t bufferMutex = PTHREAD_MUTEX_INITIALIZER;
     pthread_mutex_t byteCounterMutex = PTHREAD_MUTEX_INITIALIZER;
     pthread_cond_t bufferCond = PTHREAD_COND_INITIALIZER;
@@ -98,6 +97,17 @@ int main(int argc, char *argv[]) {
         }
         pthread_mutex_unlock(&bufferMutex);
     }
+    int threadJointResult = -1;
+    if (isTerminates) {
+        cancelAllThreads(threads, args.threadCount);
+        joinAllThreads(threads, args.threadCount);
+        cleanUpFileInfo(fileInfos, fileInfoSize);
+        free(threads);
+        free(threadArgsArray);
+        printf("Program Interrupted. Exiting...\n");
+
+        return 0;
+    }
 
     // Wait until the queue is fully processed
     pthread_mutex_lock(&bufferMutex);
@@ -109,18 +119,8 @@ int main(int argc, char *argv[]) {
     pthread_mutex_unlock(&bufferMutex);
 
     // Join all threads
-    for (int i = 0; i < args.threadCount; i++) {
-        int joinResult = pthread_join(threads[i], NULL);
-        if (joinResult != 0) {
-            fprintf(stderr, "Error: pthread_join failed with error number %d\n", joinResult);
-            isTerminates = 1;
-            break;
-        }
-    }
-
-    // For earlier termination such as termination by signal or error
-    if (isTerminates) {
-        // Cleanups
+    threadJointResult = joinAllThreads(threads, args.threadCount);
+    if (threadJointResult != 0) {
         cleanUpFileInfo(fileInfos, fileInfoSize);
         free(threads);
         free(threadArgsArray);
