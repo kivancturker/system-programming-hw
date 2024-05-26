@@ -11,4 +11,6 @@ struct FileInfo* openAllFiles(const char* srcPath, const char* destPath, int* si
 void traverseAndOpenFiles(const char* srcPath, const char* destPath, struct FileInfo** fileInfos, int* count, int* capacity);
 void cleanUpFileInfo(struct FileInfo* fileInfos, int size);
 void traverseDirectoryAndFillStats(const char* path, struct FileStats* stats);
+int openRegularFiles(struct FileInfo* fileInfo);
+int openFifoFiles(struct FileInfo fileInfo);
 #endif //FILEOPS_H

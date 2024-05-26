@@ -20,22 +20,53 @@ void parseArgs(int argc, char *argv[], struct Args *args) {
 void prepareDirectory(const char* dirPath) {
     // Delete the directory and all its contents
     struct stat st;
+    // First check if the directory exists
     if (stat(dirPath, &st) == 0) {
-        // The directory exists, so delete it and its contents
-        if (nftw(dirPath, removeItem, 64, FTW_DEPTH | FTW_PHYS) < 0) {
-            perror("nftw");
+        if (removeItem(dirPath) == -1) {
+            perror("removeItem");
         }
     }
+
     // Create the directory
     if (mkdir(dirPath, 0755) == -1) {
         perror("Error creating directory");
     }
 }
 
-int removeItem(const char *path, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
-    if (remove(path) < 0) {
-        perror("remove");
+int removeItem(const char *path) {
+    struct stat statbuf;
+    if (stat(path, &statbuf) == -1) {
+        perror("stat");
         return -1;
+    }
+    if (S_ISDIR(statbuf.st_mode)) {
+        DIR *d = opendir(path);
+        if (d == NULL) {
+            perror("opendir");
+            return -1;
+        }
+        struct dirent *dir;
+        while ((dir = readdir(d)) != NULL) {
+            if (strcmp(dir->d_name, ".") == 0 || strcmp(dir->d_name, "..") == 0) {
+                continue;
+            }
+            char buf[512];
+            snprintf(buf, sizeof(buf), "%s/%s", path, dir->d_name);
+            if (removeItem(buf) == -1) {
+                closedir(d);
+                return -1;
+            }
+        }
+        closedir(d);
+        if (rmdir(path) == -1) {
+            perror("rmdir");
+            return -1;
+        }
+    } else {
+        if (remove(path) == -1) {
+            perror("remove");
+            return -1;
+        }
     }
     return 0;
 }

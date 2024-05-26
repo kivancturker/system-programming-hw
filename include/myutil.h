@@ -7,14 +7,13 @@
 
 #include <sys/types.h>
 #include <errno.h>
-#include <ftw.h>
 #include <pthread.h>
 
 #define NO_EINTR(expr) while ((expr) == -1 && errno == EINTR);
 
 #define MAX_PATH_SIZE 512
 #define MAX_DIR_PATH_SIZE 255
-#define FILEIO_BUFFER_SIZE 1024
+#define FILEIO_BUFFER_SIZE 64// 1024
 
 enum FileType {
     REGULAR_FILE,
@@ -34,6 +33,7 @@ struct FileInfo {
     int srcFd;
     int destFd;
     char filename[MAX_PATH_SIZE];
+    char srcFilePath[MAX_PATH_SIZE];
     char destFilePath[MAX_PATH_SIZE];
     enum FileType type;
 };
@@ -49,7 +49,9 @@ struct ThreadArgs {
     struct Queue *bufferQueue;
     pthread_mutex_t *bufferMutex;
     pthread_mutex_t *byteCounterMutex;
+    pthread_mutex_t *terminationMutex;
     pthread_cond_t *bufferCond;
+    pthread_cond_t *terminationCond;
     char destPath[MAX_DIR_PATH_SIZE];
     char srcPath[MAX_DIR_PATH_SIZE];
     off_t* byteCounter;
@@ -59,8 +61,9 @@ struct ThreadArgs {
 
 void parseArgs(int argc, char *argv[], struct Args *args);
 void prepareDirectory(const char* dirPath);
-int removeItem(const char *path, const struct stat *sb, int typeflag, struct FTW *ftwbuf);
+int removeItem(const char *path);
 int joinAllThreads(pthread_t* threads, int threadCount);
 int cancelAllThreads(pthread_t* threads, int threadCount);
+int workerPoolCreation();
 
 #endif // MYUTIL_H

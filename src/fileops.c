@@ -68,6 +68,7 @@ void traverseAndOpenFiles(const char* srcPath, const char* destPath, struct File
         }
 
         if (S_ISREG(fileStat.st_mode)) {
+            /*
             destFd = open(destFilePath, O_WRONLY | O_CREAT | O_TRUNC, 0666);
             if (destFd == -1) {
                 perror("Error opening destination file");
@@ -79,12 +80,15 @@ void traverseAndOpenFiles(const char* srcPath, const char* destPath, struct File
                 close(destFd);
                 continue;
             }
+            */
             type = REGULAR_FILE;
         } else if (S_ISFIFO(fileStat.st_mode)) {
+            /*
             if (mkfifo(destFilePath, 0666) != 0) {
                 perror("Error creating FIFO");
                 continue;
             }
+            */
             type = FIFO_FILE;
         } else if (S_ISDIR(fileStat.st_mode)) {
             if (mkdir(destFilePath, 0755) != 0 && errno != EEXIST) {
@@ -113,6 +117,7 @@ void traverseAndOpenFiles(const char* srcPath, const char* destPath, struct File
         (*fileInfos)[*count].srcFd = srcFd;
         strncpy((*fileInfos)[*count].filename, entry->d_name, MAX_PATH_SIZE);
         strncpy((*fileInfos)[*count].destFilePath, destFilePath, MAX_PATH_SIZE);
+        strncpy((*fileInfos)[*count].srcFilePath, srcFilePath, MAX_PATH_SIZE);
         (*fileInfos)[*count].type = type;
         (*count)++;
     }
@@ -123,14 +128,18 @@ void traverseAndOpenFiles(const char* srcPath, const char* destPath, struct File
 
 void cleanUpFileInfo(struct FileInfo* fileInfos, int size) {
     for (int i = 0; i < size; i++) {
-        if (close(fileInfos[i].destFd) == -1) {
-            if (errno != EBADF) {
-                perror("Error closing file");
+        if (fileInfos[i].destFd >= 0) {
+            if (close(fileInfos[i].destFd) == -1) {
+                if (errno != EBADF) {
+                    perror("Error closing file");
+                }
             }
         }
-        if (close(fileInfos[i].srcFd) == -1) {
-            if (errno != EBADF) {
-                perror("Error closing file");
+        if (fileInfos[i].srcFd >= 0) {
+            if (close(fileInfos[i].srcFd) == -1) {
+                if (errno != EBADF) {
+                    perror("Error closing file");
+                }
             }
         }
     }
@@ -175,4 +184,27 @@ void traverseDirectoryAndFillStats(const char* path, struct FileStats* stats) {
     }
 
     closedir(dir);
+}
+
+int openRegularFiles(struct FileInfo* fileInfo) {
+    fileInfo->destFd = open(fileInfo->destFilePath, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (fileInfo->destFd  == -1) {
+        perror("Error opening destination file");
+        return -1;
+    }
+    fileInfo->srcFd = open(fileInfo->srcFilePath, O_RDONLY, 0666);
+    if (fileInfo->srcFd == -1) {
+        perror("Error opening source file");
+        close(fileInfo->destFd);
+        return -1;
+    }
+    return 0;
+}
+
+int openFifoFiles(struct FileInfo fileInfo) {
+    if (mkfifo(fileInfo.destFilePath, 0666) != 0) {
+        perror("Error creating FIFO");
+        return -1;
+    }
+    return 0;
 }

@@ -14,11 +14,17 @@
 #include "myutil.h"
 #include "fileops.h"
 #include "worker.h"
+#include "manager.h"
 
 int isTerminates = 0;
+pthread_cond_t terminationCond = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t terminationMutex = PTHREAD_MUTEX_INITIALIZER;
 
 void sigintHandler(int signal) {
+    pthread_mutex_lock(&terminationMutex);
     isTerminates = 1;
+    pthread_cond_signal(&terminationCond);
+    pthread_mutex_unlock(&terminationMutex);
 }
 
 // Main with arguments
@@ -55,6 +61,10 @@ int main(int argc, char *argv[]) {
     }
 
     struct FileStats fileStats;
+    fileStats.regularFileCount = 0;
+    fileStats.fifoCount = 0;
+    fileStats.directoryCount = 0;
+    fileStats.totalBytes = 0;
     traverseDirectoryAndFillStats(args.srcPath, &fileStats);
 
     // Thread pool creation
@@ -62,10 +72,33 @@ int main(int argc, char *argv[]) {
     pthread_mutex_t byteCounterMutex = PTHREAD_MUTEX_INITIALIZER;
     pthread_cond_t bufferCond = PTHREAD_COND_INITIALIZER;
 
-    pthread_t* threads = malloc(args.threadCount * sizeof(pthread_t));
-    struct ThreadArgs* threadArgsArray = malloc(args.threadCount * sizeof(struct ThreadArgs));
     int isFinished = 0;
     off_t byteCounter = 0;
+
+    // Create manager thread
+    pthread_t managerThread;
+    struct ThreadArgs managerArgs;
+    managerArgs.bufferQueue = &bufferQueue;
+    managerArgs.bufferMutex = &bufferMutex;
+    managerArgs.byteCounterMutex = &byteCounterMutex;
+    managerArgs.bufferCond = &bufferCond;
+    managerArgs.isFinished = &isFinished;
+    managerArgs.byteCounter = &byteCounter;
+    managerArgs.terminationMutex = &terminationMutex;
+    managerArgs.terminationCond = &terminationCond;
+    strncpy(managerArgs.destPath, args.destPath, MAX_DIR_PATH_SIZE);
+    strncpy(managerArgs.srcPath, args.srcPath, MAX_DIR_PATH_SIZE);
+
+    int threadCreationResult = pthread_create(&managerThread, NULL, manager, &managerArgs);
+    if (threadCreationResult != 0) {
+        fprintf(stderr, "Error: pthread_create failed with error number %d\n", threadCreationResult);
+        return 1;
+    }
+
+
+    // Create worker threads
+    pthread_t* workerThreads = malloc(args.threadCount * sizeof(pthread_t));
+    struct ThreadArgs* threadArgsArray = malloc(args.threadCount * sizeof(struct ThreadArgs));
 
     for (int i = 0; i < args.threadCount; i++) {
         threadArgsArray[i].bufferQueue = &bufferQueue;
@@ -77,7 +110,7 @@ int main(int argc, char *argv[]) {
         strncpy(threadArgsArray[i].destPath, args.destPath, MAX_DIR_PATH_SIZE);
         strncpy(threadArgsArray[i].srcPath, args.srcPath, MAX_DIR_PATH_SIZE);
 
-        int threadCreationResult = pthread_create(&threads[i], NULL, worker, &threadArgsArray[i]);
+        threadCreationResult = pthread_create(&workerThreads[i], NULL, worker, &threadArgsArray[i]);
         if (threadCreationResult != 0) {
             fprintf(stderr, "Error: pthread_create failed with error number %d\n", threadCreationResult);
             isTerminates = 1;
@@ -85,46 +118,39 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Send every file info to buffer queue
-    for (int i = 0; i < fileInfoSize && !isTerminates; i++) {
-        pthread_mutex_lock(&bufferMutex);
-        if (isQueueFull(&bufferQueue)) {
-            pthread_cond_wait(&bufferCond, &bufferMutex);
-        }
-        if (fileInfos[i].type != DIRECTORY) {
-            enqueue(&bufferQueue, fileInfos[i]);
-            pthread_cond_broadcast(&bufferCond);
-        }
-        pthread_mutex_unlock(&bufferMutex);
-    }
+    // Wait for the termination signal
+    pthread_mutex_lock(&terminationMutex);
+    pthread_cond_wait(&terminationCond, &terminationMutex);
+
     int threadJointResult = -1;
+    int threadCancelResult = -1;
     if (isTerminates) {
-        cancelAllThreads(threads, args.threadCount);
-        joinAllThreads(threads, args.threadCount);
-        cleanUpFileInfo(fileInfos, fileInfoSize);
-        free(threads);
-        free(threadArgsArray);
+        threadCancelResult = pthread_cancel(managerThread);
+        if (threadCancelResult != 0) {
+            fprintf(stderr, "Error: pthread_cancel failed with error number %d\n", threadCancelResult);
+        }
+        cancelAllThreads(workerThreads, args.threadCount);
+        pthread_join(managerThread, NULL);
+        joinAllThreads(workerThreads, args.threadCount);
         printf("Program Interrupted. Exiting...\n");
 
-        return 0;
     }
-
-    // Wait until the queue is fully processed
-    pthread_mutex_lock(&bufferMutex);
-    while (!isQueueEmpty(&bufferQueue)) {
-        pthread_cond_wait(&bufferCond, &bufferMutex);
-    }
-    isFinished = 1;
-    pthread_cond_broadcast(&bufferCond);
-    pthread_mutex_unlock(&bufferMutex);
-
-    // Join all threads
-    threadJointResult = joinAllThreads(threads, args.threadCount);
-    if (threadJointResult != 0) {
-        cleanUpFileInfo(fileInfos, fileInfoSize);
-        free(threads);
-        free(threadArgsArray);
-        return 1;
+    else {
+        // Join all threads
+        if (pthread_join(managerThread, NULL) != 0) {
+            fprintf(stderr, "Error: pthread_join failed with error number %d\n", threadJointResult);
+            cleanUpFileInfo(fileInfos, fileInfoSize);
+            free(workerThreads);
+            free(threadArgsArray);
+            return 1;
+        }
+        threadJointResult = joinAllThreads(workerThreads, args.threadCount);
+        if (threadJointResult != 0) {
+            cleanUpFileInfo(fileInfos, fileInfoSize);
+            free(workerThreads);
+            free(threadArgsArray);
+            return 1;
+        }
     }
 
     end = clock();
@@ -140,13 +166,12 @@ int main(int argc, char *argv[]) {
     printf("Number of Regular File: %d\n", fileStats.regularFileCount);
     printf("Number of FIFO File: %d\n", fileStats.fifoCount);
     printf("Number of Directory: %d\n", fileStats.directoryCount);
-    printf("TOTAL BYTES ESTIMATED: %lld\n", fileStats.totalBytes);
-    printf("TOTAL BYTES WRITTEN: %lld\n", byteCounter);
+    printf("TOTAL BYTES WRITTEN: %ld\n", (long) byteCounter);
     printf("TOTAL TIME: %02ld:%02ld.%03ld (min:sec.mili)\n", minutes, seconds, milliseconds);
 
     // Cleanups
     cleanUpFileInfo(fileInfos, fileInfoSize);
-    free(threads);
+    free(workerThreads);
     free(threadArgsArray);
 
     return 0;
