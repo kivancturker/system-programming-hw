@@ -18,13 +18,16 @@ void* manager(void* args) {
     pthread_mutex_lock(threadArgs->bufferMutex);
     struct Queue* bufferQueue = threadArgs->bufferQueue;
     pthread_mutex_t* bufferMutex = threadArgs->bufferMutex;
-    pthread_cond_t* bufferNotEmpty = threadArgs->bufferNotEmpty;
-    pthread_cond_t* bufferNotFull = threadArgs->bufferNotFull;
+    pthread_mutex_t* barrierMutex = threadArgs->barrierMutex;
+    pthread_cond_t* bufferNotEmpty = threadArgs->bufferNotEmptyCond;
+    pthread_cond_t* bufferNotFull = threadArgs->bufferNotFullCond;
+    pthread_cond_t* barrierCond = threadArgs->barrierCond;
     pthread_mutex_t* terminationMutex = threadArgs->terminationMutex;
     pthread_cond_t* terminationCond = threadArgs->terminationCond;
     char destPath[MAX_DIR_PATH_SIZE];
     char srcPath[MAX_DIR_PATH_SIZE];
     int* isFinished = threadArgs->isFinished;
+    int* barrierArrival = threadArgs->barrierArrival;
     strncpy(destPath, threadArgs->destPath, MAX_DIR_PATH_SIZE);
     strncpy(srcPath, threadArgs->srcPath, MAX_DIR_PATH_SIZE);
     pthread_mutex_unlock(threadArgs->bufferMutex);
@@ -54,7 +57,6 @@ void* manager(void* args) {
         }
         pthread_mutex_unlock(bufferMutex);
     }
-
     // Wait until the queue is fully processed
     pthread_mutex_lock(bufferMutex);
     while (!isQueueEmpty(bufferQueue)) {

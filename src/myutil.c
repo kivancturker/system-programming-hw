@@ -92,3 +92,16 @@ int cancelAllThreads(pthread_t* threads, int threadCount) {
     }
     return 0;
 }
+
+void arriveBarrier(pthread_mutex_t* barrierMutex, pthread_cond_t* barrierCond, int* barrierArrival, int workerCount) {
+    pthread_mutex_lock(barrierMutex);
+    (*barrierArrival)++;
+    if (*barrierArrival < workerCount) {
+        pthread_cond_wait(barrierCond, barrierMutex);
+    }
+    else {
+        *barrierArrival = 0;
+        pthread_cond_broadcast(barrierCond);
+    }
+    pthread_mutex_unlock(barrierMutex);
+}

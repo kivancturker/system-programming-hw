@@ -13,7 +13,7 @@
 
 #define MAX_PATH_SIZE 512
 #define MAX_DIR_PATH_SIZE 255
-#define FILEIO_BUFFER_SIZE 64// 1024
+#define FILEIO_BUFFER_SIZE 1024
 
 enum FileType {
     REGULAR_FILE,
@@ -50,15 +50,19 @@ struct ThreadArgs {
     pthread_mutex_t *bufferMutex;
     pthread_mutex_t *byteCounterMutex;
     pthread_mutex_t *terminationMutex;
-    pthread_cond_t* bufferNotEmpty;
-    pthread_cond_t* bufferNotFull;
+    pthread_mutex_t *barrierMutex;
+    pthread_cond_t* bufferNotEmptyCond;
+    pthread_cond_t* bufferNotFullCond;
     pthread_cond_t *terminationCond;
+    pthread_cond_t *barrierCond;
     char destPath[MAX_DIR_PATH_SIZE];
     char srcPath[MAX_DIR_PATH_SIZE];
     off_t* byteCounter;
     int* isFinished;
+    int* barrierArrival;
     struct FileInfo* fileInfos;
     int fileInfoSize;
+    int workerCount;
 };
 
 
@@ -68,5 +72,6 @@ int removeItem(const char *path);
 int joinAllThreads(pthread_t* threads, int threadCount);
 int cancelAllThreads(pthread_t* threads, int threadCount);
 int workerPoolCreation();
+void arriveBarrier(pthread_mutex_t* barrierMutex, pthread_cond_t* barrierCond, int* barrierArrival, int workerCount);
 
 #endif // MYUTIL_H

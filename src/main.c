@@ -70,11 +70,14 @@ int main(int argc, char *argv[]) {
     // Thread pool creation
     pthread_mutex_t bufferMutex = PTHREAD_MUTEX_INITIALIZER;
     pthread_mutex_t byteCounterMutex = PTHREAD_MUTEX_INITIALIZER;
-    pthread_cond_t bufferNotEmpty = PTHREAD_COND_INITIALIZER;
-    pthread_cond_t bufferNotFull = PTHREAD_COND_INITIALIZER;
+    pthread_mutex_t barrierMutex = PTHREAD_MUTEX_INITIALIZER;
+    pthread_cond_t bufferNotEmptyCond = PTHREAD_COND_INITIALIZER;
+    pthread_cond_t bufferNotFullCond = PTHREAD_COND_INITIALIZER;
+    pthread_cond_t barrierCond = PTHREAD_COND_INITIALIZER;
 
     int isFinished = 0;
     off_t byteCounter = 0;
+    int barrierArrival = 0;
 
     // Create manager thread
     pthread_t managerThread;
@@ -82,10 +85,13 @@ int main(int argc, char *argv[]) {
     managerArgs.bufferQueue = &bufferQueue;
     managerArgs.bufferMutex = &bufferMutex;
     managerArgs.byteCounterMutex = &byteCounterMutex;
-    managerArgs.bufferNotEmpty = &bufferNotEmpty;
-    managerArgs.bufferNotFull = &bufferNotFull;
+    managerArgs.barrierMutex = &barrierMutex;
+    managerArgs.bufferNotEmptyCond = &bufferNotEmptyCond;
+    managerArgs.bufferNotFullCond = &bufferNotFullCond;
+    managerArgs.barrierCond = &barrierCond;
     managerArgs.isFinished = &isFinished;
     managerArgs.byteCounter = &byteCounter;
+    managerArgs.barrierArrival = &barrierArrival;
     managerArgs.terminationMutex = &terminationMutex;
     managerArgs.terminationCond = &terminationCond;
     strncpy(managerArgs.destPath, args.destPath, MAX_DIR_PATH_SIZE);
@@ -108,12 +114,16 @@ int main(int argc, char *argv[]) {
         threadArgsArray[i].bufferQueue = &bufferQueue;
         threadArgsArray[i].bufferMutex = &bufferMutex;
         threadArgsArray[i].byteCounterMutex = &byteCounterMutex;
-        threadArgsArray[i].bufferNotEmpty = &bufferNotEmpty;
-        threadArgsArray[i].bufferNotFull = &bufferNotFull;
+        threadArgsArray[i].barrierMutex = &barrierMutex;
+        threadArgsArray[i].bufferNotEmptyCond = &bufferNotEmptyCond;
+        threadArgsArray[i].bufferNotFullCond = &bufferNotFullCond;
+        threadArgsArray[i].barrierCond = &barrierCond;
         threadArgsArray[i].isFinished = &isFinished;
         threadArgsArray[i].byteCounter = &byteCounter;
+        threadArgsArray[i].barrierArrival = &barrierArrival;
         strncpy(threadArgsArray[i].destPath, args.destPath, MAX_DIR_PATH_SIZE);
         strncpy(threadArgsArray[i].srcPath, args.srcPath, MAX_DIR_PATH_SIZE);
+        threadArgsArray[i].workerCount = args.threadCount;
 
         threadCreationResult = pthread_create(&workerThreads[i], NULL, worker, &threadArgsArray[i]);
         if (threadCreationResult != 0) {

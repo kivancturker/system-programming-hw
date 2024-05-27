@@ -19,12 +19,16 @@ void* worker(void* arg) {
     struct Queue* bufferQueue = threadArgs->bufferQueue;
     pthread_mutex_t *bufferMutex = threadArgs->bufferMutex;
     pthread_mutex_t *byteCounterMutex = threadArgs->byteCounterMutex;
-    pthread_cond_t* bufferNotEmpty = threadArgs->bufferNotEmpty;
-    pthread_cond_t* bufferNotFull = threadArgs->bufferNotFull;
+    pthread_mutex_t* barrierMutex = threadArgs->barrierMutex;
+    pthread_cond_t* bufferNotEmpty = threadArgs->bufferNotEmptyCond;
+    pthread_cond_t* bufferNotFull = threadArgs->bufferNotFullCond;
+    pthread_cond_t* barrierCond = threadArgs->barrierCond;
     char destPath[MAX_DIR_PATH_SIZE];
     char srcPath[MAX_DIR_PATH_SIZE];
     int* isFinished = threadArgs->isFinished;
     off_t* byteCounter = threadArgs->byteCounter;
+    int* barrierArrival = threadArgs->barrierArrival;
+    int workerCount = threadArgs->workerCount;
     strncpy(destPath, threadArgs->destPath, MAX_DIR_PATH_SIZE);
     strncpy(srcPath, threadArgs->srcPath, MAX_DIR_PATH_SIZE);
     pthread_mutex_unlock(threadArgs->bufferMutex);
@@ -43,7 +47,8 @@ void* worker(void* arg) {
 
         if (*isFinished) {
             pthread_mutex_unlock(bufferMutex);
-            break;
+            arriveBarrier(barrierMutex, barrierCond, barrierArrival, workerCount);
+            return NULL;
         }
 
         dequeue(bufferQueue, &fileInfo);
@@ -72,6 +77,8 @@ void* worker(void* arg) {
         }
         close(fileInfo.srcFd);
         close(fileInfo.destFd);
+
+        arriveBarrier(barrierMutex, barrierCond, barrierArrival, workerCount);
     }
 
     return NULL;
