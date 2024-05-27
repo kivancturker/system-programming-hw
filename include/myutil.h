@@ -50,7 +50,8 @@ struct ThreadArgs {
     pthread_mutex_t *bufferMutex;
     pthread_mutex_t *byteCounterMutex;
     pthread_mutex_t *terminationMutex;
-    pthread_cond_t *bufferCond;
+    pthread_cond_t* bufferNotEmpty;
+    pthread_cond_t* bufferNotFull;
     pthread_cond_t *terminationCond;
     char destPath[MAX_DIR_PATH_SIZE];
     char srcPath[MAX_DIR_PATH_SIZE];

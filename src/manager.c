@@ -18,7 +18,8 @@ void* manager(void* args) {
     pthread_mutex_lock(threadArgs->bufferMutex);
     struct Queue* bufferQueue = threadArgs->bufferQueue;
     pthread_mutex_t* bufferMutex = threadArgs->bufferMutex;
-    pthread_cond_t* bufferCond = threadArgs->bufferCond;
+    pthread_cond_t* bufferNotEmpty = threadArgs->bufferNotEmpty;
+    pthread_cond_t* bufferNotFull = threadArgs->bufferNotFull;
     pthread_mutex_t* terminationMutex = threadArgs->terminationMutex;
     pthread_cond_t* terminationCond = threadArgs->terminationCond;
     char destPath[MAX_DIR_PATH_SIZE];
@@ -41,13 +42,15 @@ void* manager(void* args) {
                 perror("Error while opening fifo file");
             }
         }
+
         pthread_mutex_lock(bufferMutex);
-        if (isQueueFull(bufferQueue)) {
-            pthread_cond_wait(bufferCond, bufferMutex);
+        while (isQueueFull(bufferQueue)) {
+            pthread_cond_wait(bufferNotFull, bufferMutex);
         }
+
         if (fileInfos[i].type != DIRECTORY) {
             enqueue(bufferQueue, fileInfos[i]);
-            pthread_cond_broadcast(bufferCond);
+            pthread_cond_broadcast(bufferNotEmpty);
         }
         pthread_mutex_unlock(bufferMutex);
     }
@@ -55,10 +58,10 @@ void* manager(void* args) {
     // Wait until the queue is fully processed
     pthread_mutex_lock(bufferMutex);
     while (!isQueueEmpty(bufferQueue)) {
-        pthread_cond_wait(bufferCond, bufferMutex);
+        pthread_cond_wait(bufferNotFull, bufferMutex);
     }
     *isFinished = 1;
-    pthread_cond_broadcast(bufferCond);
+    pthread_cond_broadcast(bufferNotEmpty);
     pthread_mutex_unlock(bufferMutex);
 
     pthread_mutex_lock(terminationMutex);

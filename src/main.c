@@ -70,7 +70,8 @@ int main(int argc, char *argv[]) {
     // Thread pool creation
     pthread_mutex_t bufferMutex = PTHREAD_MUTEX_INITIALIZER;
     pthread_mutex_t byteCounterMutex = PTHREAD_MUTEX_INITIALIZER;
-    pthread_cond_t bufferCond = PTHREAD_COND_INITIALIZER;
+    pthread_cond_t bufferNotEmpty = PTHREAD_COND_INITIALIZER;
+    pthread_cond_t bufferNotFull = PTHREAD_COND_INITIALIZER;
 
     int isFinished = 0;
     off_t byteCounter = 0;
@@ -81,7 +82,8 @@ int main(int argc, char *argv[]) {
     managerArgs.bufferQueue = &bufferQueue;
     managerArgs.bufferMutex = &bufferMutex;
     managerArgs.byteCounterMutex = &byteCounterMutex;
-    managerArgs.bufferCond = &bufferCond;
+    managerArgs.bufferNotEmpty = &bufferNotEmpty;
+    managerArgs.bufferNotFull = &bufferNotFull;
     managerArgs.isFinished = &isFinished;
     managerArgs.byteCounter = &byteCounter;
     managerArgs.terminationMutex = &terminationMutex;
@@ -106,7 +108,8 @@ int main(int argc, char *argv[]) {
         threadArgsArray[i].bufferQueue = &bufferQueue;
         threadArgsArray[i].bufferMutex = &bufferMutex;
         threadArgsArray[i].byteCounterMutex = &byteCounterMutex;
-        threadArgsArray[i].bufferCond = &bufferCond;
+        threadArgsArray[i].bufferNotEmpty = &bufferNotEmpty;
+        threadArgsArray[i].bufferNotFull = &bufferNotFull;
         threadArgsArray[i].isFinished = &isFinished;
         threadArgsArray[i].byteCounter = &byteCounter;
         strncpy(threadArgsArray[i].destPath, args.destPath, MAX_DIR_PATH_SIZE);

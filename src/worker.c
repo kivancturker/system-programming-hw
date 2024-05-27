@@ -19,7 +19,8 @@ void* worker(void* arg) {
     struct Queue* bufferQueue = threadArgs->bufferQueue;
     pthread_mutex_t *bufferMutex = threadArgs->bufferMutex;
     pthread_mutex_t *byteCounterMutex = threadArgs->byteCounterMutex;
-    pthread_cond_t *bufferCond = threadArgs->bufferCond;
+    pthread_cond_t* bufferNotEmpty = threadArgs->bufferNotEmpty;
+    pthread_cond_t* bufferNotFull = threadArgs->bufferNotFull;
     char destPath[MAX_DIR_PATH_SIZE];
     char srcPath[MAX_DIR_PATH_SIZE];
     int* isFinished = threadArgs->isFinished;
@@ -36,16 +37,18 @@ void* worker(void* arg) {
 
     while (!(*isFinished)) {
         pthread_mutex_lock(bufferMutex);
-        while (isQueueEmpty(bufferQueue)) {
-            pthread_cond_wait(bufferCond, bufferMutex);
-            if (*isFinished) {
-                pthread_mutex_unlock(bufferMutex);
-                return NULL;
-            }
+        while (isQueueEmpty(bufferQueue) && !(*isFinished)) {
+            pthread_cond_wait(bufferNotEmpty, bufferMutex);
         }
+
+        if (*isFinished) {
+            pthread_mutex_unlock(bufferMutex);
+            break;
+        }
+
         dequeue(bufferQueue, &fileInfo);
+        pthread_cond_signal(bufferNotFull);
         pthread_mutex_unlock(bufferMutex);
-        pthread_cond_signal(bufferCond);
 
         bytesRead = 1;
         while(bytesRead > 0) {
