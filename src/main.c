@@ -88,6 +88,8 @@ int main(int argc, char *argv[]) {
     managerArgs.terminationCond = &terminationCond;
     strncpy(managerArgs.destPath, args.destPath, MAX_DIR_PATH_SIZE);
     strncpy(managerArgs.srcPath, args.srcPath, MAX_DIR_PATH_SIZE);
+    managerArgs.fileInfos = fileInfos;
+    managerArgs.fileInfoSize = fileInfoSize;
 
     int threadCreationResult = pthread_create(&managerThread, NULL, manager, &managerArgs);
     if (threadCreationResult != 0) {

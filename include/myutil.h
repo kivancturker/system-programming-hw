@@ -56,6 +56,8 @@ struct ThreadArgs {
     char srcPath[MAX_DIR_PATH_SIZE];
     off_t* byteCounter;
     int* isFinished;
+    struct FileInfo* fileInfos;
+    int fileInfoSize;
 };
 
 

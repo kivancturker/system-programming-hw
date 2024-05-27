@@ -14,4 +14,4 @@ obj/%.o: src/%.c
 clean:
 	rm -rf $(MAIN_OBJ)
 	rm -rf $(OBJS)
-	rm -rf main
+	rm -rf MWCp

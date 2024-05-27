@@ -27,12 +27,8 @@ void* manager(void* args) {
     strncpy(destPath, threadArgs->destPath, MAX_DIR_PATH_SIZE);
     strncpy(srcPath, threadArgs->srcPath, MAX_DIR_PATH_SIZE);
     pthread_mutex_unlock(threadArgs->bufferMutex);
-
-    int fileInfoSize = 0;
-    struct FileInfo* fileInfos = openAllFiles(srcPath, destPath, &fileInfoSize);
-    if (fileInfos == NULL) {
-        return NULL;
-    }
+    struct FileInfo* fileInfos = threadArgs->fileInfos;
+    int fileInfoSize = threadArgs->fileInfoSize;
 
     // Send every file info to buffer queue
     for (int i = 0; i < fileInfoSize; i++) {
